@@ -1,12 +1,255 @@
 ---
 title: "modelado"
-output: html_document
+author: "Carlos Astorga"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    dev: "cairo_pdf"
+date: "2026-10-10"
 ---
+
+```{r}
+datos <- read.csv("../datos traduccion/IBM-HR-Employee-Attrition-ES.csv")
+```
+
+##PREPARACIÓN DE LOS DATOS
+
+Eliminación de variables constantes EmployeeCount (Cantidad_empleados), Over18 (Mayor 18) y StandardHours.
+```{r}
+datos <- datos[, !names(datos) %in% c("cantidad_empleados", "mayor_18", "horas_estandar")]
+
+```
+
+Elimina la variable EmployeeNumber (numero_empleado) por tener valores arbitrarios.
+
+```{r}
+datos <- datos[, !names(datos) %in% "numero_empleado"]
+
+```
+
+Transformación de variables ordinales a factores ordenados 
+
+Education
+1 'Below College'
+2 'College'
+3 'Bachelor'
+4 'Master'
+5 'Doctor'
+
+```{r}
+datos$educacion <- factor(datos$educacion, 
+                          levels = c(1, 2, 3, 4, 5),
+                          labels = c("Below College", "College", "Bachelor", "Master", "Doctor"), 
+                          ordered = TRUE)
+```
+
+EnvironmentSatisfaction
+1 'Low'
+2 'Medium'
+3 'High'
+4 'Very High'
+
+```{r}
+datos$satisfaccion_entorno <- factor(datos$satisfaccion_entorno, 
+                          levels = c(1, 2, 3, 4),
+                          labels = c("Low", "Medium", "High", "Very High"), 
+                          ordered = TRUE)
+```
+
+JobInvolvement
+1 'Low'
+2 'Medium'
+3 'High'
+4 'Very High'
+
+```{r}
+datos$involucramiento_laboral <- factor(datos$involucramiento_laboral, 
+                          levels = c(1, 2, 3, 4),
+                          labels = c("Low", "Medium", "High", "Very High"), 
+                          ordered = TRUE)
+```
+
+JobSatisfaction
+1 'Low'
+2 'Medium'
+3 'High'
+4 'Very High'
+
+```{r}
+datos$satisfaccion_laboral <- factor(datos$satisfaccion_laboral, 
+                          levels = c(1, 2, 3, 4),
+                          labels = c("Low", "Medium", "High", "Very High"), 
+                          ordered = TRUE)
+```
+
+PerformanceRating
+1 'Low'
+2 'Good'
+3 'Excellent'
+4 'Outstanding'
+
+```{r}
+datos$evaluacion_desempeno <- factor(datos$evaluacion_desempeno, 
+                          levels = c(1, 2, 3, 4),
+                          labels = c("Low", "Good", "Excellent", "Outstanding"), 
+                          ordered = TRUE)
+```
+
+RelationshipSatisfaction
+1 'Low'
+2 'Medium'
+3 'High'
+4 'Very High'
+
+```{r}
+datos$satisfaccion_relaciones <- factor(datos$satisfaccion_relaciones, 
+                          levels = c(1, 2, 3, 4),
+                          labels = c("Low", "Medium", "High", "Very High"), 
+                          ordered = TRUE)
+```
+
+WorkLifeBalance
+1 'Bad'
+2 'Good'
+3 'Better'
+4 'Best'
+
+```{r}
+datos$balance_vida_trabajo <- factor(datos$balance_vida_trabajo, 
+                          levels = c(1, 2, 3, 4),
+                          labels = c("Bad", "Good", "Better", "Best"), 
+                          ordered = TRUE)
+```
+
+Transformar a factor todas las variables nominales
+
+```{r}
+
+datos$viajes_negocio <- as.factor(datos$viajes_negocio)
+datos$departamento <- as.factor(datos$departamento)
+datos$area_educacion  <- as.factor(datos$area_educacion)
+datos$genero  <- as.factor(datos$genero)
+datos$rol_laboral <- as.factor(datos$rol_laboral)
+datos$estado_civil  <- as.factor(datos$estado_civil)
+datos$horas_extra   <- as.factor(datos$horas_extra )
+```
+
+
+```{r}
+datos$rotacion <- ifelse(
+  datos$rotacion == "Yes",
+  1,
+  0
+)
+```
 
 ```{r}
 str(datos)
 ```
+
+#Examen gráfico de la naturaleza de las variables 
+
+#pagina 61 Analisis Multivariante Hair
+
 ```{r}
+#muestra la cantiad de datos ausentes por variable / columna
+colSums(is.na(datos))
+```
+No se observaan datos faltantes en la base de datos 
+
+##CASOS ATIPICOS
+
+```{r}
+library(dplyr)
+
+datos_numericos <- datos %>% 
+  select(where(is.numeric))
+
+# 3. Calcular centro y matriz de covarianza
+centro <- colMeans(datos_numericos)
+covarianza <- cov(datos_numericos)
+
+# 4. Calcular Mahalanobis y guardar el resultado en la base filtrada
+datos_numericos$mahalanobis <- mahalanobis(datos_numericos, center = centro, cov = covarianza)
+
+# 5. Identificar atípicos usando Chi-cuadrado
+p <- ncol(datos_numericos) - 1 # Restamos 1 porque ya añadimos la columna 'mahalanobis'
+valor_critico <- qchisq(p = 0.999, df = p)
+
+datos_numericos$es_atipico <- datos_numericos$mahalanobis > valor_critico
+
+# 6. Ver cuántos atípicos se encontraron
+table(datos_numericos$es_atipico)
+
+```
+
+##Graficar los casos atipicos 
+
+```{r}
+# 1. Cargar ggplot2 (instálalo con install.packages("ggplot2") si no lo tienes)
+library(ggplot2)
+
+# 2. Crear una columna con el número de fila/índice para el eje X
+datos_numericos$indice <- 1:nrow(datos_numericos)
+
+# 3. Generar el gráfico de dispersión
+ggplot(datos_numericos, aes(x = indice, y = mahalanobis, color = es_atipico)) +
+  geom_point(alpha = 0.7, size = 2) +
+  # Dibujar la línea del valor crítico
+  geom_hline(yintercept = valor_critico, color = "darkred", linetype = "dashed", size = 1) +
+  # Configurar colores manuales (Azul para normales, Rojo para atípicos)
+  scale_color_manual(values = c("FALSE" = "#2b7bba", "TRUE" = "#d95f02"),
+                     labels = c("Normal (1437)", "Atípico (33)")) +
+  # Etiquetas y títulos
+  labs(title = "Detección de Casos Atípicos (Distancia de Mahalanobis)",
+       subtitle = paste("Línea segmentada representa el valor crítico de Chi-cuadrado:", round(valor_critico, 2)),
+       x = "Índice de la Observación (Fila)",
+       y = "Distancia de Mahalanobis (D²)",
+       color = "Estado del caso") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold", size = 14))
+```
+
+#Explorar de que variables son estos 33 atipicos 
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+# 1. Calcular los límites univariados (IQR) usando los datos originales
+limites <- datos_numericos %>%
+  select(-mahalanobis, -es_atipico, -indice) %>%
+  summarise(across(everything(), list(
+    inf = ~ quantile(.x, 0.25, na.rm = TRUE) - 1.5 * IQR(.x, na.rm = TRUE),
+    sup = ~ quantile(.x, 0.75, na.rm = TRUE) + 1.5 * IQR(.x, na.rm = TRUE)
+  )))
+
+# 2. Filtrar solo tus 33 casos atípicos
+solo_atipicos <- datos_numericos %>% filter(es_atipico == TRUE)
+
+# 3. Identificar qué variables rompen los límites en esos 33 casos
+nombres_vars <- datos_numericos %>% select(-mahalanobis, -es_atipico, -indice) %>% colnames()
+
+conteo_por_variable <- solo_atipicos %>%
+  select(all_of(nombres_vars)) %>%
+  summarise(across(everything(), ~ sum(.x < limites[[paste0(cur_column(), "_inf")]] | 
+                                       .x > limites[[paste0(cur_column(), "_sup")]]))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Cantidad_Atipicos") %>%
+  arrange(desc(Cantidad_Atipicos))
+
+# 4. Mostrar el resultado en pantalla
+print(conteo_por_variable)
+```
+
+
+
+
+
+
+```{r}
+str(datos)
+
 summary(datos$rotacion)
 ```
 
@@ -51,39 +294,6 @@ Por cada año adicional de edad, los odds de rotación se multiplican por aproxi
 #Evaluación de porque algunas variables predictoras tiene mucho error en este caso son rol laboral y departamentos 
 
 633.31931177
-
-```{r}
-table(datos$departamento, datos$rotacion)
-
-
-#porcentaje de rotación dentro de cada departamento
-prop.table(
-  table(datos$departamento, datos$rotacion),
-  margin = 1
-)
-
-
-table(datos$rol_laboral, datos$rotacion)
-prop.table(
-  table(datos$rol_laboral, datos$rotacion),
-  margin = 1
-)
-```
-colinealidad
-```{r}
-library(car)
-vif(modelo)
-
-library(brglm2)
-detect_separation(modelo)
-```
-
-
-
-
-
-
-
 
 
 

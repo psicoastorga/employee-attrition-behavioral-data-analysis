@@ -1,7 +1,13 @@
 ---
 title: "Preparación de los datos"
-output: html_document
+author: "Carlos Astorga"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    dev: "cairo_pdf"
+date: "2026-10-10"
 ---
+
 
 ```{r}
 datos <- read.csv("../datos traduccion/IBM-HR-Employee-Attrition-ES.csv")
